@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Siêu Nhân Phiêu Lưu</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#172554;color:white;text-align:center;font-family:Arial}
+h1{font-size:25px;margin:14px 0}
+#info{display:flex;justify-content:space-around;font-size:17px;padding:8px}
+canvas{display:block;width:100%;max-width:850px;margin:auto;background:#7dd3fc;border:3px solid white;touch-action:none}
+.controls{display:flex;justify-content:center;gap:14px;padding:14px}
+button{font-size:22px;padding:12px 23px;border:0;border-radius:12px;background:#facc15;cursor:pointer;font-weight:bold}
+#msg{padding:6px;font-size:15px}
+</style>
+</head>
+<body>
+<h1>🦸 SIÊU NHÂN PHIÊU LƯU</h1>
+<div id="info">
+<span>🪙 Điểm: <b id="score">0</b></span>
+<span>❤️ Mạng: <b id="lives">3</b></span>
+</div>
+<canvas id="game" width="850" height="420"></canvas>
+<div id="msg">Di chuyển, nhảy và thu thập xu nhé!</div>
+<div class="controls">
+<button id="left">◀</button>
+<button id="jump">⬆ NHẢY</button>
+<button id="right">▶</button>
+</div>
+<button onclick="restart()">🔄 Chơi lại</button>
+<script>
+const c=document.getElementById('game'),ctx=c.getContext('2d');
+const scoreEl=document.getElementById('score');
+const livesEl=document.getElementById('lives');
+const msg=document.getElementById('msg');
+const keys={left:false,right:false};
+let p, platforms, coins, enemies, score, lives, camera, ended, won;
+function restart(){
+ score=0;lives=3;camera=0;ended=false;won=false;
+ p={x:60,y:300,w:28,h:38,vx:0,vy:0,ground:false,inv:0};
+ platforms=[
+ {x:0,y:370,w:500,h:50},{x:560,y:330,w:170,h:25},
+ {x:790,y:285,w:160,h:25},{x:1010,y:340,w:200,h:30},
+ {x:1270,y:290,w:170,h:25},{x:1500,y:350,w:230,h:40},
+ {x:1800,y:300,w:180,h:25},{x:2050,y:360,w:450,h:60}
+ ];
+ coins=[];
+ for(let x=170;x<2400;x+=130)
+ coins.push({x,y:230+Math.random()*95,got:false});
+ enemies=[{x:620,y:298,v:1.4,min:570,max:700},
+ {x:1090,y:308,v:1.8,min:1020,max:1170},
+ {x:1550,y:318,v:1.7,min:1510,max:1690},
+ {x:2110,y:328,v:2,min:2070,max:2390}];
+ scoreEl.textContent=score;livesEl.textContent=lives;
+ msg.textContent='Chạy, nhảy và nhặt xu!';
+}
+function press(id,key){
+ const el=document.getElementById(id);
+ el.addEventListener('pointerdown',e=>{e.preventDefault();keys[key]=true;el.setPointerCapture(e.pointerId)});
+ for(const ev of ['pointerup','pointercancel','lostpointercapture'])
+ el.addEventListener(ev,()=>keys[key]=false);
+}
+press('left','left');press('right','right');
+document.getElementById('jump').addEventListener('pointerdown',e=>{
+ e.preventDefault();if(p.ground&&!ended){p.vy=-12;p.ground=false}
+});
+document.addEventListener('keydown',e=>{
+ if(['ArrowLeft','ArrowRight','ArrowUp',' '].includes(e.key))e.preventDefault();
+ if(e.key==='ArrowLeft'||e.key==='a')keys.left=true;
+ if(e.key==='ArrowRight'||e.key==='d')keys.right=true;
+ if((e.key==='ArrowUp'||e.key===' '||e.key==='w')&&p.ground&&!ended){
+ p.vy=-12;p.ground=false}
+});
+document.addEventListener('keyup',e=>{
+ if(e.key==='ArrowLeft'||e.key==='a')keys.left=false;
+ if(e.key==='ArrowRight'||e.key==='d')keys.right=false;
+});
+function update(){
+ if(ended)return;
+ p.vx=(keys.right?4:0)-(keys.left?4:0);
+ p.x=Math.max(0,Math.min(2440,p.x+p.vx));
+ p.vy+=0.55;p.y+=p.vy;p.ground=false;
+ for(const b of platforms){
+ if(p.x+p.w>b.x&&p.x<b.x+b.w&&p.y+p.h>=b.y&&
+ p.y+p.h<=b.y+18&&p.vy>=0){
+ p.y=b.y-p.h;p.vy=0;p.ground=true;
+ }}
+ if(p.inv>0)p.inv--;
+ for(const coin of coins){
+ if(!coin.got&&Math.abs(p.x+14-coin.x)<25&&
+ Math.abs(p.y+18-coin.y)<30){
+ coin.got=true;score+=10;scoreEl.textContent=score;
+ }}
+ for(const en of enemies){
+ en.x+=en.v;if(en.x<en.min||en.x>en.max)en.v*=-1;
+ if(p.inv===0&&p.x<en.x+28&&p.x+p.w>en.x&&
+ p.y<en.y+30&&p.y+p.h>en.y){
+ if(p.vy>1&&p.y+p.h<en.y+18){
+ en.x=-100;p.vy=-9;score+=20;scoreEl.textContent=score;
+ }else{
+ lives--;livesEl.textContent=lives;p.inv=90;p.vy=-6;
+ if(lives<=0){ended=true;msg.textContent='💥 Hết mạng! Nhấn Chơi lại nhé.'}
+ }
+ }
+ }
+ if(p.y>480){
+ lives--;livesEl.textContent=lives;p.x=Math.max(20,p.x-100);
+ p.y=200;p.vy=0;p.inv=90;
+ if(lives<=0){ended=true;msg.textContent='💥 Bạn đã thua! Nhấn Chơi lại nhé.'}
+ }
+ camera=Math.max(0,Math.min(1650,p.x-250));
+ if(p.x>2370){ended=true;won=true;msg.textContent='🏆 Chiến thắng! Bạn đã về đích!'}
+}
+function draw(){
+ ctx.clearRect(0,0,850,420);
+ ctx.fillStyle='#7dd3fc';ctx.fillRect(0,0,850,420);
+ ctx.fillStyle='#fff';for(let i=0;i<7;i++){
+ let x=((i*160-camera*.25)%1100+1100)%1100;
+ ctx.beginPath();ctx.arc(x,65+(i%3)*35,22,0,7);ctx.arc(x+25,65+(i%3)*35,28,0,7);ctx.fill();
+ }
+ ctx.save();ctx.translate(-camera,0);
+ for(const b of platforms){
+ ctx.fillStyle='#854d0e';ctx.fillRect(b.x,b.y,b.w,b.h);
+ ctx.fillStyle='#22c55e';ctx.fillRect(b.x,b.y,b.w,9);
+ }
+ for(const coin of coins)if(!coin.got){
+ ctx.fillStyle='#facc15';ctx.beginPath();ctx.arc(coin.x,coin.y,10,0,7);ctx.fill();
+ ctx.strokeStyle='#f97316';ctx.lineWidth=3;ctx.stroke();
+ }
+ for(const en of enemies)if(en.x>-50){
+ ctx.fillStyle='#dc2626';ctx.fillRect(en.x,en.y,28,25);
+ ctx.fillStyle='white';ctx.fillRect(en.x+5,en.y+5,6,7);ctx.fillRect(en.x+18,en.y+5,6,7);
+ ctx.fillStyle='#111827';ctx.fillRect(en.x+8,en.y+7,3,4);ctx.fillRect(en.x+20,en.y+7,3,4);
+ }
+ if(p.inv%10<6){
+ ctx.fillStyle='#2563eb';ctx.fillRect(p.x,p.y+12,p.w,p.h-12);
+ ctx.fillStyle='#fca5a5';ctx.fillRect(p.x+5,p.y,p.w-10,15);
+ ctx.fillStyle='#facc15';ctx.fillRect(p.x+3,p.y+12,p.w-6,5);
+ ctx.fillStyle='#111827';ctx.fillRect(p.x+7,p.y+5,4,4);ctx.fillRect(p.x+18,p.y+5,4,4);
+ }
+ ctx.fillStyle='#fef08a';ctx.fillRect(2420,290,8,70);
+ ctx.fillStyle='#16a34a';ctx.beginPath();ctx.moveTo(2428,290);ctx.lineTo(2475,305);ctx.lineTo(2428,320);ctx.fill();
+ ctx.restore();
+ if(ended){
+ ctx.fillStyle='rgba(15,23,42,.72)';ctx.fillRect(0,130,850,130);
+ ctx.fillStyle='white';ctx.textAlign='center';ctx.font='bold 32px Arial';
+ ctx.fillText(won?'CHIẾN THẮNG!':'GAME OVER',425,185);
+ ctx.font='22px Arial';ctx.fillText('Điểm: '+score,425,225);
+ }
+}
+function loop(){update();draw();requestAnimationFrame(loop)}
+restart();loop();
+</script>
+</body>
+</html>
